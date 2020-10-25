@@ -7,10 +7,10 @@
 #
 #       For reference: 
 #           https://docs.docker.com/develop/develop-images/build_enhancements/
+ARG BASE_DEVEL=nvidia/cuda:10.1-cudnn7-devel-ubuntu18.04
 ARG BASE_IMAGE=ubuntu:18.04
-ARG PYTHON_VERSION=3.7
 
-FROM ${BASE_IMAGE} as dev-base
+FROM ${BASE_DEVEL} as dev-base
 RUN --mount=type=cache,id=apt-dev,target=/var/cache/apt \
     apt-get update && apt-get install -y --no-install-recommends \
         build-essential \
@@ -27,11 +27,12 @@ RUN mkdir /opt/ccache && ccache --set-config=cache_dir=/opt/ccache
 ENV PATH /opt/conda/bin:$PATH
 
 FROM dev-base as conda
-RUN curl -v -o ~/miniconda.sh -O  https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh  && \
+ARG PYTHON_VERSION=3.7
+RUN curl -fsSL -v -o ~/miniconda.sh -O  https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
     chmod +x ~/miniconda.sh && \
     ~/miniconda.sh -b -p /opt/conda && \
     rm ~/miniconda.sh && \
-    /opt/conda/bin/conda install -y python=${PYTHON_VERSION} conda-build pyyaml numpy ipython&& \
+    /opt/conda/bin/conda install -y python=${PYTHON_VERSION} conda-build pyyaml numpy ipython && \
     /opt/conda/bin/conda clean -ya
 
 FROM dev-base as submodule-update
@@ -41,7 +42,6 @@ RUN git submodule update --init --recursive
 
 FROM conda as build
 WORKDIR /opt/pytorch
-COPY --from=conda /opt/conda /opt/conda
 COPY --from=submodule-update /opt/pytorch /opt/pytorch
 RUN --mount=type=cache,target=/opt/ccache \
     TORCH_CUDA_ARCH_LIST="3.5 5.2 6.0 6.1 7.0+PTX" TORCH_NVCC_FLAGS="-Xfatbin -compress-all" \
@@ -50,7 +50,7 @@ RUN --mount=type=cache,target=/opt/ccache \
 
 FROM conda as conda-installs
 ARG INSTALL_CHANNEL=pytorch-nightly
-RUN /opt/conda/bin/conda install -c "${INSTALL_CHANNEL}" -y pytorch torchvision && \
+RUN /opt/conda/bin/conda install -c "${INSTALL_CHANNEL}" -y pytorch torchvision cudatoolkit=10.1 && \
     /opt/conda/bin/conda clean -ya
 
 FROM ${BASE_IMAGE} as official
