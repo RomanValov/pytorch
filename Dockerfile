@@ -32,7 +32,7 @@ RUN curl -fsSL -v -o ~/miniconda.sh -O  https://repo.anaconda.com/miniconda/Mini
     chmod +x ~/miniconda.sh && \
     ~/miniconda.sh -b -p /opt/conda && \
     rm ~/miniconda.sh && \
-    /opt/conda/bin/conda install -y python=${PYTHON_VERSION} conda-build pyyaml numpy ipython && \
+    /opt/conda/bin/conda install -y python="${PYTHON_VERSION}" conda-build pyyaml numpy ipython && \
     /opt/conda/bin/conda clean -ya
 
 FROM dev-base as submodule-update
@@ -50,7 +50,10 @@ RUN --mount=type=cache,target=/opt/ccache \
 
 FROM conda as conda-installs
 ARG INSTALL_CHANNEL=pytorch-nightly
-RUN /opt/conda/bin/conda install -c "${INSTALL_CHANNEL}" -y pytorch torchvision cudatoolkit=10.1 && \
+ARG CUDA_TOOLKIT_VERSION=
+ENV IBM_POWERAI_LICENSE_ACCEPT=yes
+RUN /opt/conda/bin/conda install -c "${INSTALL_CHANNEL}" -y --update-deps --strict-channel-priority \
+        pytorch torchvision cudatoolkit="${CUDA_TOOLKIT_VERSION}" && \
     /opt/conda/bin/conda clean -ya
 
 FROM ${BASE_IMAGE} as official
