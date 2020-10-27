@@ -10515,6 +10515,17 @@ class TestNNDeviceType(NNTestCase):
         test('threshold', 3, 2)
         test('threshold', 3, 2, inplace=True)
 
+    def test_pooling_shape(self, device):
+        def check(expected_out_shape, sizes, *args, **kwargs):
+            for i in [1, 2, 3]:
+                op = getattr(torch.nn.functional, f'max_pool{i}d')
+                t = torch.randn(sizes[:i + 2], device=device)
+                self.assertEqual(op(t, *args, **kwargs).shape, expected_out_shape[:i + 2])
+
+        check((1, 1, 3, 3, 4), (1, 1, 5, 6, 7), kernel_size=1, stride=2, padding=0, ceil_mode=True)
+        check((1, 1, 2, 3, 3), (1, 1, 3, 4, 5), kernel_size=2, stride=2, padding=1, ceil_mode=False)
+        check((1, 1, 2, 3, 3), (1, 1, 3, 4, 5), kernel_size=2, stride=2, padding=1, ceil_mode=True)
+
     @onlyOnCPUAndCUDA   # TODO: fix on XLA
     def test_adaptive_avg_pool2d_output_size_one(self, device):
         def helper(size, memory_format):
